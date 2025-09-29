@@ -14,7 +14,7 @@
     .badge{background:#e8f1ff;border:1px solid #cfe0ff;color:#244;border-radius:999px;padding:6px 10px;font-weight:700}
     footer{text-align:center;padding:16px;margin:18px auto 24px}
     .footer-wrap{max-width:980px;margin:0 auto;background:#e5f0ff;border:1px solid #cfe0ff;border-radius:12px;padding:12px;display:flex;align-items:center;gap:14px}
-    .footer-logo{width:64px;height:64px;object-fit:contain;border-radius:8px;background:#fff;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.08)}
+    .footer-logo{width:64px;height:64px;object-fit:contain;border-radius:8px;:#fff;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.08)}
     .footer-text a{color:#0b63ff;text-decoration:none} .footer-text a:hover{text-decoration:underline}
     #status{margin-top:8px;font-size:.92rem;color:#b91c1c} /* sichtbare Fehlermeldungen */
   </style>
@@ -135,12 +135,12 @@
     ];
 
     function analyzeMessage(msg){
-      const notes = [];
+      const n = [];
       let delta = 0;
       const lower = msg.toLowerCase();
 
       if(/[A-ZÄÖÜ]{4,}/.test(msg) && msg === msg.toUpperCase()){ delta--; notes.push("⚠️ Bitte nicht BRÜLLEN (ALL CAPS)."); }
-      if((msg.match(/!/g)||[]).length>=3 || (msg.match(/\?/g)||[]).length>=3 || /[!?]{2,}/.test(msg)){ delta--; notes.push("⚠️ Zu viele !!! oder ???."); }
+      if((msg.match(/!/g)||[]).leng=3 || (msg.match(/\?/g)||[]).length>=3 || /[!?]{2,}/.test(msg)){ delta--; notes.push("⚠️ Zu viele !!! oder ???."); }
       if((msg.match(/[\u{1F300}-\u{1FAFF}]/gu)||[]).length>=3){ delta--; notes.push("⚠️ Zu viele Emojis."); }
       if(RUDE.some(w => lower.includes(w))){ delta--; notes.push("⚠️ Unhöfliche/vulgäre Formulierung vermeiden."); }
       if(/\bdu\b.*(bist|machst|hast).*(immer|nie|total|schlecht|falsch)/i.test(msg)){ delta--; notes.push("⚠️ Vermeide DU-Unterstellungen – nutze Ich-Botschaft."); }
