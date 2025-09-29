@@ -2,38 +2,66 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Willkommen zur Nettiquette</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nettiquette – Startseite</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#f6f8fa; text-align:center; padding:20px; }
-    header { background:#2563eb; color:white; padding:30px; border-radius:8px; }
-    h1 { margin:0; font-size:2em; }
-    .box { background:white; margin:20px auto; padding:20px; border-radius:8px; max-width:500px; }
-    img { margin-top:15px; }
+    body { font-family: Arial, sans-serif; background:#f6f7fb; margin:0; padding:0; text-align:center; }
+    header { background:#2563eb; color:white; padding:20px; }
+    main { padding:20px; }
+    select, input, button { padding:10px; margin:5px; border-radius:5px; border:1px solid #ccc; }
+    button { background:#2563eb; color:white; cursor:pointer; }
+    #qrcode { margin-top:20px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Willkommen zur Nettiquette</h1>
-    <p>Demokratie & soziales Handeln im Netz</p>
-  </header>
 
-  <div class="box">
-    <h2>Wähle deine Klasse & Nickname</h2>
-    <label>Klasse:
-      <select>
-        <option>Klasse 5a</option>
-        <option>Klasse 5b</option>
-        <option>Klasse 6a</option>
-        <option>Klasse 6b</option>
-      </select>
-    </label>
-    <br><br>
-    <label>Nickname: <input type="text" placeholder="Dein Name"></label>
-    <button>Raum öffnen</button>
+<header>
+  <h1>Willkommen zur Nettiquette</h1>
+  <p>Demokratie & soziales Handeln im Netz</p>
+</header>
 
-    <p>📱 Scanne den QR-Code und öffne den Chat direkt auf deinem iPad</p>
-    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAA..." 
-         alt="QR-Code" width="180" height="180">
+<main>
+  <h2>Wähle deine Klasse & Nickname</h2>
+  <label for="classSelect">Klasse:</label>
+  <select id="classSelect">
+    <option value="5a">Klasse 5a</option>
+    <option value="5b">Klasse 5b</option>
+    <option value="6a">Klasse 6a</option>
+    <option value="6b">Klasse 6b</option>
+    <option value="eigener">Eigener Raum</option>
+  </select>
+  <br><br>
+  <label for="nickname">Nickname:</label>
+  <input type="text" id="nickname" placeholder="Dein Name">
+  <button onclick="openRoom()">Raum öffnen</button>
+
+  <!-- QR-Code Bereich -->
+  <div style="margin-top:40px;">
+    <h3>📱 Scanne den QR-Code und öffne den Chat direkt auf deinem iPad</h3>
+    <div id="qrcode"></div>
   </div>
+</main>
+
+<script>
+function openRoom() {
+  const room = document.getElementById("classSelect").value;
+  const nick = document.getElementById("nickname").value.trim();
+  if(!nick) { alert("Bitte Nickname eingeben!"); return; }
+  window.open("room_chat.html?room=" + encodeURIComponent(room) + "&nick=" + encodeURIComponent(nick), "_blank");
+}
+</script>
+
+<!-- QRCode.js laden -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  // Hier GitHub Pages URL eintragen
+  var chatUrl = "https://deinname.github.io/dein-repo/"; 
+  new QRCode(document.getElementById("qrcode"), {
+    text: chatUrl,
+    width: 180,
+    height: 180
+  });
+</script>
+
 </body>
 </html>
