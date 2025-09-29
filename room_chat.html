@@ -17,7 +17,8 @@
     footer { margin:30px auto; text-align:center; font-size:14px; }
     footer img { width:100px; margin-top:10px; }
   
-/* === Netiquette UI additions === */
+/* === Netiquette UI additions (robust) === */
+header { position: relative; }
 header .score { position:absolute; right:20px; top:20px; background:rgba(255,255,255,.15); padding:6px 10px; border-radius:8px; font-weight:bold; }
 header .score.low { color:#b91c1c; }
 .system-message.netiquette { background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; padding:8px 10px; border-radius:10px; margin:8px 0; }
@@ -55,170 +56,128 @@ header .score.low { color:#b91c1c; }
     }
   </script>
 <script>
-// ===== Netiquette Scoring & Moderation (drop-in) =====
+// ===== Netiquette Scoring & Moderation (robust attach) =====
+(function(){
+  const SELECTORS = {
+    messages: ["#messages", ".chat-messages"],
+    input: ["#chat-input", "textarea#chat-input", "textarea.chat-input", "input#chat-input", "textarea", "input[type='text']"],
+    send: ["#send-btn", ".send-button", "button[type='submit']"],
+    form: ["#chat-form", "form.chat-form", "form"]
+  };
 
-// --- POSITIVE TRIGGERS (+5) ---
-const POSITIVE_TRIGGERS = [
-  "danke", "bitte", "entschuldigung", "entschuldige", "sorry",
-  "respekt", "freundlich", "höflich", "guter punkt", "toller beitrag",
-  "konstruktiv", "fair", "wertschätzung", "tut mir leid"
-];
-
-// --- SCHIMPFWORT-LISTEN ---
-// HINWEIS: Ersetze die folgenden Seed-Listen durch deine "große Liste" aus Datei 1.
-// Marker: ***PASTE_YOUR_BIG_LIST_HERE***
-const PROFANITY_LIST_SEED = [
-  "arsch", "arschloch", "depp", "idiot", "scheiße", "scheiss", "mist",
-  "pisser", "wichser", "fick", "fuck", "spast", "spasti", "trottel",
-  "bastard", "dummkopf", "volldepp", "blödmann"
-];
-
-const BLOCKLIST_SEXIST_RACIST_SEED = [
-  "schlampe","hure","fotze","kanake"
-];
-
-// ***PASTE_YOUR_BIG_LIST_HERE***
-const PROFANITY_LIST = PROFANITY_LIST_SEED;
-const BLOCKLIST_SEXIST_RACIST = BLOCKLIST_SEXIST_RACIST_SEED;
-
-// --- SCORE-PARAMS ---
-let netiquetteScore = 100;
-const PENALTY_PROFANITY = 10;  // −10 bei Schimpfwort
-const PENALTY_HARDBLOCK = 20;  // −20 bei sex./rass. → Nachricht wird blockiert
-const BONUS_POSITIVE    = 5;   // +5 bei positivem Verhalten
-const SCORE_MIN = 0, SCORE_MAX = 100;
-
-const NEGATIVE_MESSAGES = [
-  "⛔ Bitte achte auf deine Wortwahl – respektvoll bleibt’s fair.",
-  "⚠️ Schimpfwörter sind hier nicht erlaubt. Formuliere dein Anliegen sachlich.",
-  "🚫 Sprache hat Wirkung. Versuch’s konstruktiv – danke!",
-  "❗ Netiquette-Reminder: Keine Beleidigungen im Chat."
-];
-
-const BLOCKED_MESSAGES = [
-  "🚫 Deine Nachricht wurde blockiert (sexistische/rassistische Sprache ist verboten).",
-  "⛔ Nachricht nicht gesendet: diskriminierende Inhalte sind in diesem Chat untersagt.",
-  "⚠️ Moderation: Deine Nachricht wurde wegen verbotener Sprache blockiert."
-];
-
-// --- UTILITIES ---
-function normalizeLeet(text) {
-  return text
-    .replace(/[@]/g, "a")
-    .replace(/[€3]/g, "e")
-    .replace(/[!1]/g, "i")
-    .replace(/[0]/g, "o")
-    .replace(/[5$]/g, "s")
-    .replace(/7/g, "t");
-}
-
-function toWordsRegex(list) {
-  return new RegExp(
-    "\\\\b(" + list.map(w => w.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")).join("|") + ")\\\\b",
-    "iu"
-  );
-}
-
-const reProfanity = toWordsRegex(PROFANITY_LIST);
-const reHardblock = toWordsRegex(BLOCKLIST_SEXIST_RACIST);
-const rePositive  = toWordsRegex(POSITIVE_TRIGGERS);
-
-function analyze(text) {
-  const normalized = normalizeLeet(text).normalize("NFKC").replace(/\\s+/g, " ").trim();
-  const isHardblock = reHardblock.test(normalized);
-  const hasProfanity = !isHardblock && reProfanity.test(normalized);
-  const hasPositive = rePositive.test(normalized);
-  return { isHardblock, hasProfanity, hasPositive };
-}
-
-function get(sel) { return document.querySelector(sel); }
-
-function postSystem(msg) {
-  const stream = get("#messages") || document.body;
-  const div = document.createElement("div");
-  div.className = "system-message netiquette";
-  div.setAttribute("role", "alert");
-  div.textContent = msg;
-  stream.appendChild(div);
-  stream.scrollTop = stream.scrollHeight;
-  setTimeout(() => div.remove(), 8000);
-}
-
-function appendMessage(text) {
-  const stream = get("#messages");
-  const row = document.createElement("div");
-  row.textContent = text;
-  stream.appendChild(row);
-  stream.scrollTop = stream.scrollHeight;
-}
-
-function renderScore() {
-  const el = get("#scoreValue");
-  if (el) {
-    el.textContent = String(netiquetteScore);
-    el.classList.toggle("low", netiquetteScore < 60);
-  }
-}
-
-function clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
-
-function applyPenalty(amount, messageArray) {
-  netiquetteScore = clamp(netiquetteScore - amount, SCORE_MIN, SCORE_MAX);
-  renderScore();
-  const msg = messageArray[Math.floor(Math.random() * messageArray.length)];
-  postSystem(msg + " (−" + amount + " Punkte · Score: " + netiquetteScore + ")");
-}
-
-function applyBonus(amount) {
-  netiquetteScore = clamp(netiquetteScore + amount, SCORE_MIN, SCORE_MAX);
-  renderScore();
-  postSystem("✅ Danke für deinen respektvollen Ton! (+" + amount + " Punkte · Score: " + netiquetteScore + ")");
-}
-
-function handleSend() {
-  const input = get("#chat-input");
-  const text = (input?.value || "").trim();
-  if (!text) return;
-
-  const { isHardblock, hasProfanity, hasPositive } = analyze(text);
-
-  if (isHardblock) {
-    applyPenalty(PENALTY_HARDBLOCK, BLOCKED_MESSAGES);
-    if (input) input.value = "";
-    return;
+  function $(sels){ for (const s of sels){ const el = document.querySelector(s); if (el) return el; } return null; }
+  function ensureScoreEl(){
+    let span = document.querySelector("#scoreValue");
+    if (!span){
+      const header = document.querySelector("header");
+      if (!header) return null;
+      const wrap = document.createElement("div");
+      wrap.className = "score";
+      wrap.append("Score: ");
+      span = document.createElement("span");
+      span.id = "scoreValue";
+      span.textContent = "100";
+      wrap.append(span);
+      header.append(wrap);
+    }
+    return span;
   }
 
-  if (hasProfanity) {
-    appendMessage(text);
-    applyPenalty(PENALTY_PROFANITY, NEGATIVE_MESSAGES);
-    if (hasPositive) applyBonus(BONUS_POSITIVE);
-    if (input) input.value = "";
-    return;
+  // POSITIVE TRIGGERS (+5)
+  const POSITIVE_TRIGGERS = ["danke","bitte","entschuldigung","entschuldige","sorry","respekt","freundlich","höflich","guter punkt","toller beitrag","konstruktiv","fair","wertschätzung","tut mir leid"];
+
+  // LISTEN – bitte hier bei Bedarf ersetzen
+  const PROFANITY_LIST = ["arsch","arschloch","depp","idiot","scheiße","scheiss","mist","pisser","wichser","fick","fuck","spast","spasti","trottel","bastard","dummkopf","volldepp","blödmann"];
+  const BLOCKLIST_SEXIST_RACIST = ["schlampe","hure","fotze","kanake"];
+
+  const PENALTY_PROFANITY = 10, PENALTY_HARDBLOCK = 20, BONUS_POSITIVE = 5, SCORE_MIN = 0, SCORE_MAX = 100;
+  const NEGATIVE_MESSAGES = ["⛔ Bitte achte auf deine Wortwahl – respektvoll bleibt’s fair.","⚠️ Schimpfwörter sind hier nicht erlaubt. Formuliere dein Anliegen sachlich.","🚫 Sprache hat Wirkung. Versuch’s konstruktiv – danke!","❗ Netiquette-Reminder: Keine Beleidigungen im Chat."];
+  const BLOCKED_MESSAGES = ["🚫 Deine Nachricht wurde blockiert (sexistische/rassistische Sprache ist verboten).","⛔ Nachricht nicht gesendet: diskriminierende Inhalte sind in diesem Chat untersagt.","⚠️ Moderation: Deine Nachricht wurde wegen verbotener Sprache blockiert."];
+
+  let netiquetteScore = 100;
+  function normalizeLeet(t){return t.replace(/[@]/g,"a").replace(/[€3]/g,"e").replace(/[!1]/g,"i").replace(/[0]/g,"o").replace(/[5$]/g,"s").replace(/7/g,"t");}
+  function wordsRe(list){return new RegExp("\\b(" + list.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|") + ")\\b","iu");}
+  const reProfanity = wordsRe(PROFANITY_LIST), reHard = wordsRe(BLOCKLIST_SEXIST_RACIST), rePos = wordsRe(POSITIVE_TRIGGERS);
+
+  function analyze(text){
+    const n = normalizeLeet(text).normalize("NFKC").replace(/\s+/g," ").trim();
+    const hard = reHard.test(n);
+    const prof = !hard && reProfanity.test(n);
+    const pos = rePos.test(n);
+    return {hard, prof, pos};
+  }
+  function clamp(n,min,max){return Math.min(max, Math.max(min,n));}
+  function renderScore(){
+    const el = document.querySelector("#scoreValue");
+    if (el){ el.textContent = String(netiquetteScore); el.classList.toggle("low", netiquetteScore < 60); }
+  }
+  function postSystem(msg){
+    const stream = $(SELECTORS.messages) || document.body;
+    const d = document.createElement("div");
+    d.className = "system-message netiquette";
+    d.setAttribute("role","alert");
+    d.textContent = msg;
+    stream.appendChild(d);
+    stream.scrollTop = stream.scrollHeight;
+    setTimeout(()=>d.remove(), 8000);
+  }
+  function appendMessage(text){
+    const stream = $(SELECTORS.messages);
+    const d = document.createElement("div");
+    d.textContent = text;
+    stream.appendChild(d);
+    stream.scrollTop = stream.scrollHeight;
+  }
+  function applyPenalty(amount, arr){
+    netiquetteScore = clamp(netiquetteScore - amount, SCORE_MIN, SCORE_MAX);
+    renderScore();
+    const msg = arr[Math.floor(Math.random()*arr.length)];
+    postSystem(msg + " (−" + amount + " Punkte · Score: " + netiquetteScore + ")");
+  }
+  function applyBonus(amount){
+    netiquetteScore = clamp(netiquetteScore + amount, SCORE_MIN, SCORE_MAX);
+    renderScore();
+    postSystem("✅ Danke für deinen respektvollen Ton! (+" + amount + " Punkte · Score: " + netiquetteScore + ")");
+  }
+  function handleSend(){
+    const input = $(SELECTORS.input);
+    const t = (input?.value || "").trim();
+    if (!t) return;
+    const {hard, prof, pos} = analyze(t);
+    if (hard){ applyPenalty(PENALTY_HARDBLOCK, BLOCKED_MESSAGES); input.value = ""; return; }
+    if (prof){ appendMessage(t); applyPenalty(PENALTY_PROFANITY, NEGATIVE_MESSAGES); if (pos) applyBonus(BONUS_POSITIVE); input.value = ""; return; }
+    appendMessage(t); if (pos) applyBonus(BONUS_POSITIVE); input.value = "";
   }
 
-  appendMessage(text);
-  if (hasPositive) applyBonus(BONUS_POSITIVE);
-  if (input) input.value = "";
-}
+  function bindOnce(){
+    ensureScoreEl();
+    renderScore();
+    const btn = $(SELECTORS.send);
+    const input = $(SELECTORS.input);
+    const form = $(SELECTORS.form);
 
-function initNetiquette() {
-  renderScore();
+    if (!btn || !input){
+      // show visible diagnostic to help user see missing hooks
+      postSystem("⚙️ Netiquette-Modul aktiv – warte auf Chat-Elemente…");
+      return false;
+    }
 
-  const btn = get("#send-btn");
-  const input = get("#chat-input");
-  const form = get("#chat-form");
+    btn.addEventListener("click", (e)=>{ e.preventDefault(); handleSend(); }, {once:false});
+    input.addEventListener("keydown", (e)=>{ if (e.key==="Enter" && !e.shiftKey){ e.preventDefault(); handleSend(); } });
+    if (form){ form.addEventListener("submit", (e)=>{ e.preventDefault(); handleSend(); }); }
+    postSystem("✅ Netiquette-Modul aktiv – Score & Moderation bereit.");
+    return true;
+  }
 
-  btn?.addEventListener("click", (e) => { e.preventDefault(); handleSend(); });
-  input?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-  });
-  form?.addEventListener("submit", (e) => { e.preventDefault(); handleSend(); });
-}
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initNetiquette);
-} else {
-  initNetiquette();
-}
-</script></body>
+  // Try immediately; if elements not yet present, observe DOM for them
+  if (!bindOnce()){
+    const obs = new MutationObserver(()=>{
+      if (bindOnce()){ obs.disconnect(); }
+    });
+    obs.observe(document.documentElement, {childList:true, subtree:true});
+    // Fallback retry timer
+    setTimeout(bindOnce, 1500);
+    setTimeout(bindOnce, 3000);
+  }
+})();</script></body>
 </html>
