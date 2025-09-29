@@ -504,6 +504,53 @@ function postPositive(msg){
   if (btn && !btn.__wired){ btn.addEventListener('click', safe); btn.__wired = true; }
 })();
 </script>
+<script type="module">
+  // Firebase SDKs laden (ESM über gstatic)
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, push, onChildAdded, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+  // >>> HIER deinen echten Config-Block aus Firebase einfügen <<<
+  const firebaseConfig = {
+    apiKey: "DEIN_API_KEY",
+    authDomain: "DEIN_PROJEKT.firebaseapp.com",
+    databaseURL: "https://DEIN-PROJEKT-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "DEIN_PROJEKT",
+    storageBucket: "DEIN_PROJEKT.appspot.com",
+    messagingSenderId: "DEINE_ID",
+    appId: "DEINE_APP_ID"
+  };
+
+  // App & DB initialisieren
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  // === Öffentliche, einfache API ===
+  // 1) Aufrufen, sobald der Raum offen ist:
+  //    window.initFirebaseChat(klasse, nick, onMessage)
+  //    -> onMessage bekommt {user, text, time}
+  // 2) Senden:
+  //    window.sendFirebaseMessage(klasse, nick, text)
+
+  window.initFirebaseChat = function(klasse, nick, onMessage) {
+    const roomPath = `rooms/${encodeURIComponent(klasse)}/messages`;
+    const messagesRef = ref(db, roomPath);
+
+    // Neue Nachrichten live anhören
+    onChildAdded(messagesRef, snap => {
+      const v = snap.val();
+      if (onMessage) onMessage(v);
+    });
+  };
+
+  window.sendFirebaseMessage = function(klasse, nick, text) {
+    if (!text || !text.trim()) return;
+    const roomPath = `rooms/${encodeURIComponent(klasse)}/messages`;
+    push(ref(db, roomPath), {
+      user: nick,
+      text: text.trim(),
+      time: serverTimestamp()
+    });
+  };
+</script>
 </body>
 </html>
