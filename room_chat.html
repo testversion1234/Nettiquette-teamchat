@@ -6,6 +6,13 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Nettiquette – Raum</title>
 <style>
+
+/* Delta badges next to messages */
+.delta-badge{display:inline-block;margin-left:8px;padding:2px 6px;border-radius:12px;font-size:12px;border:1px solid transparent}
+.delta-plus{background:#ecfdf5;border-color:#059669;color:#065f46}
+.delta-minus{background:#fef2f2;border-color:#dc2626;color:#7f1d1d}
+
+
 .system-message.positive{background:#ecfdf5;border:1px solid #059669;color:#065f46;padding:8px 10px;border-radius:10px;margin:8px 0;}
 
 
@@ -338,6 +345,163 @@ function postPositive(msg){
     btn.addEventListener('click', safeHandle);
     btn.__patched = true;
   }
+})();
+</script>
+
+
+<script>
+(function(){
+  // Params
+  const params = new URLSearchParams(location.search);
+  const room = (params.get('room') || 'Raum').trim() || 'Raum';
+  let nick = (params.get('nick') || '').trim();
+  if (!nick){
+    try {
+      nick = localStorage.getItem('chatNick') || "";
+      if (!nick){ nick = prompt("Wie möchtest du im Chat heißen?") || "Gast"; localStorage.setItem('chatNick', nick); }
+    } catch(e){ nick = "Gast"; }
+  }
+  const KEY = "scores:"+room;
+
+  // Helpers
+  function getScores(){ try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch(e){ return {}; } }
+  function setScores(map){ localStorage.setItem(KEY, JSON.stringify(map)); }
+  function clamp(n,min,max){ return Math.min(max, Math.max(min,n)); }
+  function bySel(s){ return document.querySelector(s); }
+  function messagesEl(){ return bySel("#messages") || bySel(".chat-messages") || document.body; }
+  function infoEl(){ return bySel("#room-info"); }
+  function scoreSpan(){ return bySel("#scoreValue"); }
+  function ensureInfo(){
+    const el = infoEl();
+    if (el){
+      const t = el.textContent;
+      let newer = t.replace(/Aktueller Raum:\s*[^|]*/, "Aktueller Raum: "+room+" ");
+      newer = newer.replace(/Nickname:\s*[^|]*/, "Nickname: "+nick+" ");
+      el.textContent = newer;
+    }
+  }
+  function postDelta(amount){
+    const b = document.createElement("span");
+    b.className = "delta-badge " + (amount>=0 ? "delta-plus" : "delta-minus");
+    b.textContent = (amount>=0?"+":"") + String(amount);
+    return b;
+  }
+
+  // Scoring constants (safe defaults if missing)
+  window.SCORE_MIN = typeof SCORE_MIN==="number" ? SCORE_MIN : 0;
+  window.SCORE_MAX = typeof SCORE_MAX==="number" ? SCORE_MAX : 200;
+  const BONUS_POSITIVE = (typeof window.BONUS_POSITIVE==="number") ? window.BONUS_POSITIVE : 1;
+  const PENALTY_PROFANITY = (typeof window.PENALTY_PROFANITY==="number") ? window.PENALTY_PROFANITY : 10;
+  const PENALTY_HARDBLOCK = (typeof window.PENALTY_HARDBLOCK==="number") ? window.PENALTY_HARDBLOCK : 25;
+
+  // Build regexes from existing lists
+  function wordsRe(list){
+    if (!Array.isArray(list)) return /$a/;
+    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("\\b(" + list.map(esc).join("|") + ")\\b", "iu");
+  }
+  const POSITIVE_TRIGGERS = (typeof window.POSITIVE_TRIGGERS!=="undefined") ? window.POSITIVE_TRIGGERS : ["danke","super","klasse","toll","ich finde gut","ich freue mich"];
+  const PROFANITY_LIST = (typeof window.PROFANITY_LIST!=="undefined") ? window.PROFANITY_LIST : [];
+  const BLOCKLIST_SEXIST_RACIST = (typeof window.BLOCKLIST_SEXIST_RACIST!=="undefined") ? window.BLOCKLIST_SEXIST_RACIST : [];
+  const rePos = wordsRe(POSITIVE_TRIGGERS);
+  const reProfanity = wordsRe(PROFANITY_LIST);
+  const reHard = wordsRe(BLOCKLIST_SEXIST_RACIST);
+
+  // Local user score from stored map (default 100 if not set yet)
+  let all = getScores();
+  if (typeof all[nick] !== "number") all[nick] = (typeof window.netiquetteScore === "number") ? window.netiquetteScore : 100;
+  window.netiquetteScore = all[nick];
+
+  // Render scoreboard line and leaderboard
+  function updateLeaderboard(){
+    const wrap = document.getElementById("leaderboard");
+    if (!wrap) return;
+    const rows = Object.entries(getScores()).sort((a,b)=>(b[1]??0)-(a[1]??0)).slice(0,25);
+    let html = "<b>"+room+" – Punkte</b>";
+    if (!rows.length){ html += "<div class='row'><span class='name'>Noch keine Einträge</span><span class='score'>0</span></div>"; }
+    else {
+      rows.forEach(([n,s],i)=>{
+        const medal = i<3? ["🥇","🥈","🥉"][i] : "•";
+        html += "<div class='row'><span class='name'>"+medal+" "+n+"</span><span class='score'>"+String(s??0)+"</span></div>";
+      });
+    }
+    wrap.innerHTML = html;
+  }
+
+  window.renderScore = function(){
+    const s = scoreSpan();
+    if (s){ s.textContent = String(window.netiquetteScore); s.classList.toggle("low", window.netiquetteScore < 60); }
+    // persist
+    const map = getScores();
+    map[nick] = window.netiquetteScore;
+    setScores(map);
+    updateLeaderboard();
+  };
+
+  // Main send handler override
+  window.handleSend = function(){
+    const input = bySel("#chat-input");
+    const t = (input?.value || "").trim();
+    if (!t) return;
+    const msg = t.normalize("NFKC").replace(/\s+/g," ").trim();
+    const stream = messagesEl();
+
+    // Evaluate
+    const hard = reHard.test(msg);
+    const prof = !hard && reProfanity.test(msg);
+    const pos = rePos.test(msg);
+
+    // Append user's message
+    const d = document.createElement("div");
+    d.textContent = "Du: " + t;
+    // Apply delta badge (prefer the strongest effect)
+    if (hard){
+      window.netiquetteScore = clamp(window.netiquetteScore - PENALTY_HARDBLOCK, SCORE_MIN, SCORE_MAX);
+      d.appendChild(postDelta(-PENALTY_HARDBLOCK));
+    } else if (prof){
+      window.netiquetteScore = clamp(window.netiquetteScore - PENALTY_PROFANITY, SCORE_MIN, SCORE_MAX);
+      d.appendChild(postDelta(-PENALTY_PROFANITY));
+    } else if (pos){
+      window.netiquetteScore = clamp(window.netiquetteScore + BONUS_POSITIVE, SCORE_MIN, SCORE_MAX);
+      d.appendChild(postDelta(+BONUS_POSITIVE));
+    }
+    stream.appendChild(d);
+    stream.scrollTop = stream.scrollHeight;
+
+    // Feedback messages
+    if (hard){
+      const s = document.createElement("div");
+      s.className = "system-message";
+      s.textContent = "❌ Nachricht blockiert (sexistisch/rassistisch).";
+      stream.appendChild(s);
+    } else if (prof){
+      const s = document.createElement("div");
+      s.className = "system-message";
+      s.textContent = "⚠️ Bitte achte auf deine Wortwahl. (-"+PENALTY_PROFANITY+")";
+      stream.appendChild(s);
+    } else if (pos){
+      const s = document.createElement("div");
+      s.className = "system-message positive";
+      s.textContent = "✅ Danke für deinen respektvollen Beitrag! (+"+BONUS_POSITIVE+")";
+      stream.appendChild(s);
+    }
+
+    // Clear input & update
+    if (input) input.value = "";
+    renderScore();
+  };
+
+  // Initialize UI
+  ensureInfo();
+  renderScore();
+  updateLeaderboard();
+
+  // Bind submit/click defensively
+  const form = document.getElementById('chat-form');
+  const btn = document.getElementById('send-btn');
+  function safe(e){ if(e) e.preventDefault(); try{ handleSend(); }catch(err){} return false; }
+  if (form && !form.__wired){ form.addEventListener('submit', safe); form.__wired = true; }
+  if (btn && !btn.__wired){ btn.addEventListener('click', safe); btn.__wired = true; }
 })();
 </script>
 
