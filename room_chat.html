@@ -31,7 +31,7 @@ header .score.low { color:#b91c1c; }
 <div class="score">Score: <span id="scoreValue">100</span></div></header>
 <div class="info" id="room-info">Aktueller Raum: - | Nickname: - | Mein Score: 0</div>
 <div id="messages">Hier erscheinen die Nachrichten...</div>
-<form id="chat-form" onsubmit="sendMessage(event)">
+<form id="chat-form">
 <input id="chat-input" placeholder="Schreibe deine Nachricht …" required="" type="text"/>
 <button id="send-btn" type="submit">Senden</button>
 </form>
@@ -87,8 +87,8 @@ header .score.low { color:#b91c1c; }
   const POSITIVE_TRIGGERS = ["danke","bitte","entschuldigung","entschuldige","sorry","respekt","freundlich","höflich","guter punkt","toller beitrag","konstruktiv","fair","wertschätzung","tut mir leid"];
 
   // LISTEN – bitte hier bei Bedarf ersetzen
-  const PROFANITY_LIST = ["arsch","arschloch","depp","idiot","scheiße","scheiss","mist","pisser","wichser","fick","fuck","spast","spasti","trottel","bastard","dummkopf","volldepp","blödmann"];
-  const BLOCKLIST_SEXIST_RACIST = ["schlampe","hure","fotze","kanake"];
+  const PROFANITY_LIST = ["arsch", "arschloch", "depp", "idiot", "scheiße", "scheiss", "mist", "pisser", "wichser", "fick", "fuck", "spast", "spasti", "trottel", "bastard", "dummkopf", "volldepp", "blödmann", "dumme kuh", "schwein", "esel", "blödbommel", "dummi", "kackwurst", "hohlkopf", "nichtsnutz", "hirni", "affe", "vollidiot", "knallkopf", "knalltüte", "penner", "intelligenzallergiker", "evolutionsbremse", "döskopp", "lötschendötsch", "rievekoochejeseech", "fressklötsch", "hüüldopp", "nöttelefönes", "mistkäfer", "spargeltarzan", "brillenschlange", "eierkopf", "klotaucher", "hohle fritte", "doofmannsgehilfe", "nelkenheinrich", "waldwichtel", "allroundlaie", "pfeife", "himmel, arsch und zwirn", "verdammt nochmal", "zum kuckuck", "ach du kacke", "fotze", "homo", "bliad", "suka", "arschgesicht", "alte furzbirne"];
+  const BLOCKLIST_SEXIST_RACIST = ["schlampe", "hure", "fotze", "kanake", "wichser", "homo", "suka"];
 
   const PENALTY_PROFANITY = 10, PENALTY_HARDBLOCK = 20, BONUS_POSITIVE = 5, SCORE_MIN = 0, SCORE_MAX = 100;
   const NEGATIVE_MESSAGES = ["⛔ Bitte achte auf deine Wortwahl – respektvoll bleibt’s fair.","⚠️ Schimpfwörter sind hier nicht erlaubt. Formuliere dein Anliegen sachlich.","🚫 Sprache hat Wirkung. Versuch’s konstruktiv – danke!","❗ Netiquette-Reminder: Keine Beleidigungen im Chat."];
@@ -109,7 +109,9 @@ header .score.low { color:#b91c1c; }
   function clamp(n,min,max){return Math.min(max, Math.max(min,n));}
   function renderScore(){
     const el = document.querySelector("#scoreValue");
-    if (el){ el.textContent = String(netiquetteScore); el.classList.toggle("low", netiquetteScore < 60); }
+    if (el){ el.textContent = String(netiquetteScore); el.classList.toggle("low", netiquetteScore < 60); 
+    const info=document.getElementById("room-info"); if(info){ info.textContent = info.textContent.replace(/Mein Score:\s*\d+/, "Mein Score: "+String(netiquetteScore)); }
+  }
   }
   function postSystem(msg){
     const stream = $(SELECTORS.messages) || document.body;
