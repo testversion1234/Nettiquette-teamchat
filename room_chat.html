@@ -251,6 +251,57 @@ header .score.low { color:#b91c1c; }
 
     startChat();
   </script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getDatabase, ref, push, onChildAdded, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+  const usp = new URLSearchParams(location.search);
+  const rawRoom = usp.get("room") || "5a";
+  const klasse  = String(rawRoom).trim().toLowerCase().replace(/\s+/g, "_"); // gleiche Räume erzwingen
+  const nick    = (usp.get("nick") || "Gast").slice(0, 24);
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBK9iwsc9kpAW006Jmh197ToCSQbTk-X34",
+    authDomain: "netiquette-74729.firebaseapp.com",
+    databaseURL: "https://netiquette-74729-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "netiquette-74729",
+    storageBucket: "netiquette-74729.appspot.com",
+    messagingSenderId: "178454261761",
+    appId: "1:178454261761:web:0fc34ec20d45ef880a5000"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getDatabase(app);
+
+  const messagesEl = document.getElementById("messages");
+  const form = document.getElementById("chat-form");
+  const input = document.getElementById("chat-input");
+
+  function addLine(t){ const d=document.createElement("div"); d.textContent=t; messagesEl.appendChild(d); messagesEl.scrollTop=messagesEl.scrollHeight; }
+
+  (async () => {
+    await signInAnonymously(auth);                      // 1) anmelden
+    const msgsRef = ref(db, `rooms/${klasse}/messages`);
+
+    onChildAdded(msgsRef, s => {                        // 2) live lesen
+      const m = s.val() || {};
+      addLine(`${m.user || "?"}: ${m.text || ""}`);
+    });
+
+    form?.addEventListener("submit", async (e) => {     // 3) senden
+      e.preventDefault();
+      const text = (input.value || "").trim();
+      if (!text) return;
+
+      // >> HIER bleibt dein bestehender Wortfilter/Score-Check <<
+      // wenn verboten → return; // NICHT senden
+
+      await push(msgsRef, { text, user: nick, ts: serverTimestamp() });
+      input.value = "";
+    });
+  })();
+</script>
 </body>
 </html>
