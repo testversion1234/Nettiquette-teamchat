@@ -94,7 +94,7 @@ header .score.low { color:#b91c1c; }
   }
 
   // POSITIVE TRIGGERS (+5)
-  const POSITIVE_TRIGGERS = ["danke","bitte","entschuldigung","entschuldige","sorry","respekt","freundlich","höflich","guter punkt","toller beitrag","konstruktiv","fair","wertschätzung","tut mir leid", "ich finde gut", "ich finde das gut", "ich finde das", "ich mag", "ich freue mich", "ich sch\u00e4tze", "ich respektiere", "ich stimme zu", "ich helfe", "ich unterst\u00fctze", "gute idee", "tolle idee", "gut gemacht", "das ist fair", "ich bin dankbar", "vielen dank", "super", "klasse", "toll", "ich finde gut dass"];
+  const POSITIVE_TRIGGERS = ["danke","bitte","entschuldigung","entschuldige","sorry","respekt","freundlich","höflich","guter punkt","toller beitrag","konstruktiv","fair","wertschätzung","tut mir leid", "ich finde gut", "ich finde das gut", "ich finde das", "ich mag", "ich freue mich", "ich sch\u00e4tze", "ich respektiere", "ich stimme zu", "ich helfe", "ich unterst\u00fctze", "gute idee", "tolle idee", "gut gemacht", "das ist fair", "ich bin dankbar", "vielen dank", "super", "klasse", "toll", "ich finde gut dass", "ich finde toll", "ich finde sehr gut", "das ist toll", "das ist gut", "sehr gut", "sehr toll"];
 
   // LISTEN – bitte hier bei Bedarf ersetzen
   const PROFANITY_LIST = ["arsch", "arschloch", "depp", "idiot", "scheiße", "scheiss", "mist", "pisser", "wichser", "fick", "fuck", "spast", "spasti", "trottel", "bastard", "dummkopf", "volldepp", "blödmann", "dumme kuh", "schwein", "esel", "blödbommel", "dummi", "kackwurst", "hohlkopf", "nichtsnutz", "hirni", "affe", "vollidiot", "knallkopf", "knalltüte", "penner", "intelligenzallergiker", "evolutionsbremse", "döskopp", "lötschendötsch", "rievekoochejeseech", "fressklötsch", "hüüldopp", "nöttelefönes", "mistkäfer", "spargeltarzan", "brillenschlange", "eierkopf", "klotaucher", "hohle fritte", "doofmannsgehilfe", "nelkenheinrich", "waldwichtel", "allroundlaie", "pfeife", "himmel, arsch und zwirn", "verdammt nochmal", "zum kuckuck", "ach du kacke", "fotze", "homo", "bliad", "suka", "arschgesicht", "alte furzbirne"];
@@ -315,6 +315,29 @@ function postPositive(msg){
 
   // initial
   updateLeaderboard();
+})();
+</script>
+
+
+<script>
+(function(){
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('chat-input');
+  const btn = document.getElementById('send-btn');
+  function safeHandle(e){
+    if (e) e.preventDefault();
+    try { if (typeof handleSend === 'function') handleSend(); } catch(err){}
+    if (input) input.value = "";
+    return false;
+  }
+  if (form && !form.__patched){
+    form.addEventListener('submit', safeHandle);
+    form.__patched = true;
+  }
+  if (btn && !btn.__patched){
+    btn.addEventListener('click', safeHandle);
+    btn.__patched = true;
+  }
 })();
 </script>
 
