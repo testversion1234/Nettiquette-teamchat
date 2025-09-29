@@ -183,35 +183,18 @@ header .score.low { color:#b91c1c; }
   }
 })();</script>
   
-  <!-- Firebase Realtime Database Integration + sichtbares Debug -->
-  <style>
-  /* --- DEBUG BADGE (nur zur Fehlersuche) --- */
-  #dbg {
-    position: fixed; top: 8px; right: 8px; z-index: 9999;
-    font: 12px/1.2 system-ui, Arial, sans-serif;
-    background: rgba(0,0,0,.7); color: #fff; padding: 6px 8px; border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.2);
-  }
-  #dbg b { display:inline-block; min-width:68px; }
-</style>
-  <div id="dbg" hidden>
-    <div><b>Auth:</b> <span id="dbg-auth">…</span></div>
-    <div><b>DB:</b> <span id="dbg-db">…</span></div>
-    <div><b>Room:</b> <span id="dbg-room">…</span></div>
-    <div><b>Nick:</b> <span id="dbg-nick">…</span></div>
-  </div>
+  <!-- Firebase Realtime Database Integration -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
     import {
-      getDatabase, ref, push, onChildAdded, serverTimestamp, onValue
+      getDatabase, ref, push, onChildAdded, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
     const usp = new URLSearchParams(location.search);
     const klasse = usp.get("room") || "5a";
     const nick   = (usp.get("nick") || "Gast").slice(0, 24);
 
-    // Deine echte Config
     const firebaseConfig = {
       apiKey: "AIzaSyBK9iwsc9kpAW006Jmh197ToCSQbTk-X34",
       authDomain: "netiquette-74729.firebaseapp.com",
@@ -227,18 +210,6 @@ header .score.low { color:#b91c1c; }
     const auth = getAuth(app);
     const db   = getDatabase(app);
 
-    // Debug Badge
-    const dbg = document.getElementById("dbg");
-    const dbgAuth = document.getElementById("dbg-auth");
-    const dbgDb   = document.getElementById("dbg-db");
-    const dbgRoom = document.getElementById("dbg-room");
-    const dbgNick = document.getElementById("dbg-nick");
-    if (dbg && dbgAuth && dbgDb && dbgRoom && dbgNick) {
-      dbg.hidden = false;
-      dbgRoom.textContent = klasse;
-      dbgNick.textContent = nick;
-    }
-
     const messagesEl = document.getElementById("messages");
     const form = document.getElementById("chat-form");
     const input = document.getElementById("chat-input");
@@ -249,53 +220,31 @@ header .score.low { color:#b91c1c; }
       messagesEl.appendChild(d);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
-    function setDbg(el, v){ if(el) el.textContent = v; }
-
-    // Verbindungsstatus der RTDB anzeigen
-    const connRef = ref(db, ".info/connected");
-    onValue(connRef, (snap) => {
-      setDbg(dbgDb, snap.val() ? "online" : "offline");
-    }, (err) => {
-      console.error("DB-Statusfehler:", err);
-      setDbg(dbgDb, "Fehler");
-    });
-
-    onAuthStateChanged(auth, (user) => {
-      setDbg(dbgAuth, user ? "angemeldet" : "abgemeldet");
-    });
 
     async function startChat() {
       try {
         await signInAnonymously(auth);
       } catch (e) {
         console.error("Anonyme Anmeldung fehlgeschlagen:", e);
-        addLine("⚠️ Anmeldung fehlgeschlagen. Öffne die Seite über http(s) und prüfe 'Authorized domains' in Firebase.");
         return;
       }
 
       const msgsRef = ref(db, `rooms/${klasse}/messages`);
 
-      // Live-Nachrichten
       onChildAdded(msgsRef, snap => {
         const m = snap.val() || {};
         addLine(`${m.user || "?"}: ${m.text || ""}`);
-      }, (err) => {
-        console.error("onChildAdded Fehler:", err);
-        addLine("⚠️ Konnte Nachrichten-Stream nicht abonnieren.");
       });
 
-      // Senden
       form?.addEventListener("submit", async (e) => {
         e.preventDefault();
         const text = (input.value || "").trim();
         if (!text) return;
-
         try {
           await push(msgsRef, { text, user: nick, ts: serverTimestamp() });
           input.value = "";
         } catch (e) {
           console.error("Senden fehlgeschlagen:", e);
-          addLine("⚠️ Nachricht konnte nicht gesendet werden.");
         }
       });
     }
