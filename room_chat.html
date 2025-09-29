@@ -6,6 +6,16 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Nettiquette – Raum</title>
 <style>
+.system-message.positive{background:#ecfdf5;border:1px solid #059669;color:#065f46;padding:8px 10px;border-radius:10px;margin:8px 0;}
+
+
+/* Leaderboard minimal styles */
+.leaderboard{font-size:14px; background:#f6f7fb; padding:8px 12px; border-bottom:1px solid #e5e7eb;}
+.leaderboard b{font-weight:600;}
+.leaderboard .row{display:flex; justify-content:space-between; margin:2px 0;}
+.leaderboard .name{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60%;}
+.leaderboard .score{font-variant-numeric: tabular-nums;}
+
     body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f6f9; }
     header { background:#1976d2; color:white; padding:20px; text-align:center; position:relative; }
     header img { width:80px; height:80px; border-radius:50%; border:3px solid #fff; box-shadow:0 4px 10px rgba(0,0,0,0.2); }
@@ -84,7 +94,7 @@ header .score.low { color:#b91c1c; }
   }
 
   // POSITIVE TRIGGERS (+5)
-  const POSITIVE_TRIGGERS = ["danke","bitte","entschuldigung","entschuldige","sorry","respekt","freundlich","höflich","guter punkt","toller beitrag","konstruktiv","fair","wertschätzung","tut mir leid"];
+  const POSITIVE_TRIGGERS = ["danke","bitte","entschuldigung","entschuldige","sorry","respekt","freundlich","höflich","guter punkt","toller beitrag","konstruktiv","fair","wertschätzung","tut mir leid", "ich finde gut", "ich finde das gut", "ich finde das", "ich mag", "ich freue mich", "ich sch\u00e4tze", "ich respektiere", "ich stimme zu", "ich helfe", "ich unterst\u00fctze", "gute idee", "tolle idee", "gut gemacht", "das ist fair", "ich bin dankbar", "vielen dank", "super", "klasse", "toll"];
 
   // LISTEN – bitte hier bei Bedarf ersetzen
   const PROFANITY_LIST = ["arsch", "arschloch", "depp", "idiot", "scheiße", "scheiss", "mist", "pisser", "wichser", "fick", "fuck", "spast", "spasti", "trottel", "bastard", "dummkopf", "volldepp", "blödmann", "dumme kuh", "schwein", "esel", "blödbommel", "dummi", "kackwurst", "hohlkopf", "nichtsnutz", "hirni", "affe", "vollidiot", "knallkopf", "knalltüte", "penner", "intelligenzallergiker", "evolutionsbremse", "döskopp", "lötschendötsch", "rievekoochejeseech", "fressklötsch", "hüüldopp", "nöttelefönes", "mistkäfer", "spargeltarzan", "brillenschlange", "eierkopf", "klotaucher", "hohle fritte", "doofmannsgehilfe", "nelkenheinrich", "waldwichtel", "allroundlaie", "pfeife", "himmel, arsch und zwirn", "verdammt nochmal", "zum kuckuck", "ach du kacke", "fotze", "homo", "bliad", "suka", "arschgesicht", "alte furzbirne"];
@@ -113,7 +123,19 @@ header .score.low { color:#b91c1c; }
     const info=document.getElementById("room-info"); if(info){ info.textContent = info.textContent.replace(/Mein Score:\s*\d+/, "Mein Score: "+String(netiquetteScore)); }
   }
   }
-  function postSystem(msg){
+  
+function postPositive(msg){
+  const stream = $(SELECTORS.messages) || document.body;
+  const d = document.createElement("div");
+  d.className = "system-message positive";
+  d.setAttribute("role","status");
+  d.textContent = msg;
+  stream.appendChild(d);
+  stream.scrollTop = stream.scrollHeight;
+  setTimeout(()=>d.remove(), 6000);
+}
+
+function postPositive(msg){
     const stream = $(SELECTORS.messages) || document.body;
     const d = document.createElement("div");
     d.className = "system-message netiquette";
@@ -181,5 +203,72 @@ header .score.low { color:#b91c1c; }
     setTimeout(bindOnce, 1500);
     setTimeout(bindOnce, 3000);
   }
-})();</script></body>
+})();</script>
+<script>
+(function(){
+  const LS_NICK = "chatNick";
+  const LS_SCORES = "chatAllScores";
+  function getNick(){
+    let n = localStorage.getItem(LS_NICK);
+    if (!n){
+      n = prompt("Wie möchtest du im Chat heißen?") || "Gast";
+      n = n.trim() || "Gast";
+      localStorage.setItem(LS_NICK, n);
+    }
+    return n;
+  }
+  function getAllScores(){
+    try { return JSON.parse(localStorage.getItem(LS_SCORES) || "{}"); }
+    catch(e){ return {}; }
+  }
+  function setAllScores(map){
+    localStorage.setItem(LS_SCORES, JSON.stringify(map));
+  }
+  function updateLeaderboard(){
+    const wrap = document.getElementById("leaderboard");
+    if (!wrap) return;
+    const map = getAllScores();
+    const rows = Object.entries(map).sort((a,b)=> (b[1]??0)-(a[1]??0)).slice(0,20);
+    let html = "<b>Scores (alle)</b>";
+    if (!rows.length){ html += "<div class='row'><span class='name'>Noch keine Einträge</span></div>"; }
+    else {
+      for (let i=0;i<rows.length;i++){
+        const [name,score] = rows[i];
+        html += "<div class='row'><span class='name'>"+ (i<3?["🥇","🥈","🥉"][i]:"•") +" "+ escapeHtml(name) +"</span><span class='score'>"+ String(score??0) +"</span></div>";
+      }
+    }
+    wrap.innerHTML = html;
+  }
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
+  }
+
+  const nick = getNick();
+  const info = document.getElementById("room-info");
+  if (info){
+    info.textContent = info.textContent.replace(/Nickname:\s*[-\w]*/, "Nickname: "+nick);
+  }
+
+  if (typeof renderScore === "function"){
+    const _renderScore = renderScore;
+    window.renderScore = function(){
+      try{
+        _renderScore.apply(this, arguments);
+        const map = getAllScores();
+        if (typeof netiquetteScore !== "undefined"){
+          map[nick] = netiquetteScore;
+          setAllScores(map);
+        }
+        updateLeaderboard();
+      }catch(e){ console.error(e); }
+    };
+  } else {
+    updateLeaderboard();
+  }
+
+  updateLeaderboard();
+})();
+</script>
+
+</body>
 </html>
