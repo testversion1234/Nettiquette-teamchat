@@ -182,17 +182,16 @@ header .score.low { color:#b91c1c; }
     setTimeout(bindOnce, 3000);
   }
 })();</script>
-  
-  <!-- Firebase Realtime Database Integration -->
+  <!-- Firebase Realtime Database Integration (robust) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    import {
-      getDatabase, ref, push, onChildAdded, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, push, onChildAdded, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+    // Hilfsfunktionen
     const usp = new URLSearchParams(location.search);
-    const klasse = usp.get("room") || "5a";
+    const rawRoom = usp.get("room") || "5a";
+    const klasse = String(rawRoom).trim().toLowerCase().replace(/\s+/g, "_"); // Raum-ID robust machen
     const nick   = (usp.get("nick") || "Gast").slice(0, 24);
 
     const firebaseConfig = {
@@ -206,10 +205,12 @@ header .score.low { color:#b91c1c; }
       measurementId: "G-NN4LLV21YL"
     };
 
+    // Init
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db   = getDatabase(app);
 
+    // UI-Elemente
     const messagesEl = document.getElementById("messages");
     const form = document.getElementById("chat-form");
     const input = document.getElementById("chat-input");
@@ -221,21 +222,25 @@ header .score.low { color:#b91c1c; }
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    async function startChat() {
+    // Starte Chat
+    (async function start(){
       try {
         await signInAnonymously(auth);
       } catch (e) {
-        console.error("Anonyme Anmeldung fehlgeschlagen:", e);
+        addLine("⚠️ Anmeldung fehlgeschlagen (Auth). Domain in Firebase→Authentication→Einstellungen hinzufügen.");
         return;
       }
 
+      // Live-Stream
       const msgsRef = ref(db, `rooms/${klasse}/messages`);
-
       onChildAdded(msgsRef, snap => {
         const m = snap.val() || {};
         addLine(`${m.user || "?"}: ${m.text || ""}`);
+      }, err => {
+        addLine("⚠️ Konnte Nachrichten-Stream nicht abonnieren.");
       });
 
+      // Senden (mit sichtbarem Feedback)
       form?.addEventListener("submit", async (e) => {
         e.preventDefault();
         const text = (input.value || "").trim();
@@ -244,12 +249,17 @@ header .score.low { color:#b91c1c; }
           await push(msgsRef, { text, user: nick, ts: serverTimestamp() });
           input.value = "";
         } catch (e) {
-          console.error("Senden fehlgeschlagen:", e);
+          addLine("⚠️ Nachricht konnte nicht gespeichert werden (Regeln/Verbindung).");
         }
       });
-    }
 
-    startChat();
+      // Sichtbar machen, in welchem Raum du bist
+      const infoEl = document.getElementById("room-info");
+      if (infoEl) {
+        const niceRoom = rawRoom || "5a";
+        infoEl.textContent = `Aktueller Raum: ${niceRoom} | Nickname: ${nick} | Mein Score: 100`;
+      }
+    })();
   </script>
 
 </body>
