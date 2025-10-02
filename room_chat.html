@@ -192,7 +192,7 @@ header .score.low { color:#b91c1c; }
   const FALLBACK_CONFIG = {
     apiKey: "YOUR_API_KEY",
     authDomain: "YOUR_PROJECT.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
+    databaseURL: "https://netiquette-74729-default-rtdb.europe-west1.firebasedatabase.app",
     projectId: "YOUR_PROJECT",
     storageBucket: "YOUR_PROJECT.appspot.com",
     messagingSenderId: "YOUR_SENDER_ID",
@@ -200,6 +200,7 @@ header .score.low { color:#b91c1c; }
   };
   const APP = initializeApp(window.FIREBASE_CONFIG || FALLBACK_CONFIG);
   const DB  = getDatabase(APP);
+  const DBURL = (APP && APP.options && (APP.options.databaseURL || APP.options['databaseURL'])) || '(unbekannt)';
   const $ = (sel) => document.querySelector(sel);
   const messagesBox = document.getElementById('messages') || $('.messages') || $('#chat-log') || $('#chatLog');
   const form        = document.getElementById('chat-form') || $('form.chat-form') || $('form');
@@ -240,7 +241,7 @@ header .score.low { color:#b91c1c; }
     return { hard, soft, any: hard || soft };
   }
   const roomRef = ref(DB, `/rooms/${encodeURIComponent(ROOM)}/messages`);
-  onChildAdded(roomRef, (snap) => {
+  onChildAdded(roomRef, (snap) => { try {
     const msg = snap.val();
     if (!msg) return;
     const who = msg.user || '???';
@@ -258,18 +259,28 @@ header .score.low { color:#b91c1c; }
         input.focus();
         return;
       }
-      push(roomRef, {
-        user: NICK,
-        text: text,
-        ts: serverTimestamp()
-      });
-      input.value = '';
-      input.focus();
+      try {
+        push(roomRef, {
+          user: NICK,
+          text: text,
+          ts: serverTimestamp()
+        }).then(()=>{
+          input.value = '';
+          input.focus();
+        }).catch(err=>{
+          console.error('push error', err);
+          postBubble('❗️ Senden fehlgeschlagen (Firebase): ' + (err && err.message ? err.message : err), 'warn');
+        });
+      } catch(err) {
+        console.error('push throw', err);
+        postBubble('❗️ Senden fehlgeschlagen (throw): ' + (err && err.message ? err.message : err), 'warn');
+      }
     });
   } else {
     console.warn('Chat form or input not found; patch keeps layout untouched but cannot bind.');
   }
   postBubble(`✅ Netiquette aktiv. Du bist als <strong>${NICK}</strong> im Raum <strong>${ROOM}</strong>.`, 'system');
+  postBubble(`ℹ️ Firebase verbunden: <code>${DBURL}</code>`, 'system');
 </script>
 <style>
   .msg { padding: 8px 10px; margin: 6px 0; border-radius: 8px; font-size: 14px; }
