@@ -281,6 +281,29 @@ header .score.low { color:#b91c1c; }
   }
   postBubble(`✅ Netiquette aktiv. Du bist als <strong>${NICK}</strong> im Raum <strong>${ROOM}</strong>.`, 'system');
   postBubble(`ℹ️ Firebase verbunden: <code>${DBURL}</code>`, 'system');
+
+  // --- Diagnostics: show config summary ---
+  const cfg = (APP && APP.options) || {};
+  postBubble(`🔍 Diagnose: projectId=<code>${cfg.projectId||'(leer)'}</code>, authDomain=<code>${cfg.authDomain||'(leer)'}</code>`, 'system');
+
+  // --- Diagnostics: attempt a test write (ping) ---
+  try {
+    const pingRef = roomRef;
+    push(pingRef, {
+      user: NICK,
+      text: "[PING] Verbindungstest",
+      ts: serverTimestamp(),
+      _diag: true
+    }).then(()=>{
+      postBubble('🟢 Test-Schreiben ok (Realtime Database nimmt Daten an).', 'system');
+    }).catch(err=>{
+      postBubble('🔴 Test-Schreiben FEHLER: ' + (err && err.message ? err.message : String(err)), 'warn');
+      console.error('PING push error', err);
+    });
+  } catch(err) {
+    postBubble('🔴 Test-Schreiben THROW: ' + (err && err.message ? err.message : String(err)), 'warn');
+    console.error('PING push throw', err);
+  }
 </script>
 <style>
   .msg { padding: 8px 10px; margin: 6px 0; border-radius: 8px; font-size: 14px; }
