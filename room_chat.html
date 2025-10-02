@@ -56,72 +56,51 @@ header .score.low { color:#b91c1c; }
     }
   
 
-// === DIAGNOSTICS HOOKS (non-intrusive, console only) ===
-(function(){
-  try {
-    console.log("[NETIQUIETTE] Firebase SDK:", typeof firebase);
-    // Connection state
-    try {
-      firebase.database().ref(".info/connected").on("value", s => {
-        console.log("[NETIQUIETTE] .info/connected =", s.val());
-      });
-    } catch(e){ console.warn("[NETIQUIETTE] .info/connected hook failed:", e); }
+document.getElementById("openRoomBtn").onclick = function() {
+  const klasseEl = document.getElementById("klasse");
+  const nickEl   = document.getElementById("nick");
+  const chatLog  = document.getElementById("chatLog");
+  const sendBtn  = document.getElementById("sendBtn");
+  const msgInput = document.getElementById("msgInput");
 
-    const openBtn = document.getElementById("openRoomBtn");
-    const chatLog = document.getElementById("chatLog");
-    const sendBtn = document.getElementById("sendBtn");
-    const msgInput = document.getElementById("msgInput");
-    const klasseEl = document.getElementById("klasse");
-    const nickEl   = document.getElementById("nick");
+  const klasse = klasseEl ? klasseEl.value : "";
+  const nick   = nickEl ? nickEl.value : "";
 
-    if(!openBtn || !chatLog || !sendBtn || !msgInput || !klasseEl || !nickEl){
-      console.error("[NETIQUIETTE] Missing DOM elements",
-        {openBtn:!!openBtn, chatLog:!!chatLog, sendBtn:!!sendBtn, msgInput:!!msgInput, klasse:!!klasseEl, nick:!!nickEl});
-    }
+  // Header-Anzeige aktualisieren, falls vorhanden
+  var cr = document.getElementById("currentRoom");
+  var cn = document.getElementById("currentNick");
+  if (cr) cr.textContent = klasse || "-";
+  if (cn) cn.textContent = nick || "-";
 
-    openBtn && (openBtn.onclick = function(){
-      const klasse = (klasseEl && klasseEl.value) || "Klasse 5a";
-      const nick   = (nickEl && nickEl.value) || "User";
-      const roomPath = "rooms/" + klasse + "/messages";
-      console.log("[NETIQUIETTE] OPEN ROOM clicked →", {klasse, nick, roomPath});
-
-      const ref = firebase.database().ref(roomPath);
-
-      // detach previous and attach new
-      ref.off();
-      console.log("[NETIQUIETTE] Listener attaching to", roomPath);
-      ref.on("child_added", function(snap){
-        const msg = snap.val();
-        console.log("[NETIQUIETTE] child_added", {key: snap.key, msg});
-        if(chatLog){
-          const p = document.createElement("p");
-          p.textContent = (msg && msg.user || "User") + ": " + (msg && msg.text || "");
-          chatLog.appendChild(p);
-        } else {
-          console.warn("[NETIQUIETTE] chatLog not found, cannot render message");
-        }
-      }, function(err){
-        console.error("[NETIQUIETTE] Listener error", err);
-        alert("Firebase-Lesen blockiert oder Fehler: " + (err && (err.code || err.message)));
-      });
-
-      // send hook
-      if(sendBtn){
-        sendBtn.onclick = function(){
-          const text = (msgInput && msgInput.value || "").trim();
-          if(!text) return;
-          console.log("[NETIQUIETTE] SEND →", {roomPath, nick, text});
-          firebase.database().ref(roomPath).push().set({user:nick, text:text})
-            .then(()=>{ if(msgInput) msgInput.value=""; console.log("[NETIQUIETTE] SEND ok"); })
-            .catch(err=>{ console.error("[NETIQUIETTE] SEND failed", err); alert("Firebase-Schreiben fehlgeschlagen: " + (err && (err.code || err.message))); });
-        };
-      }
-    });
-  } catch(e){
-    console.error("[NETIQUIETTE] Diagnostics init failed:", e);
+  if (!klasse || !nick) {
+    alert("Bitte zuerst Klasse und Nickname eingeben!");
+    return;
   }
-})();
-// === END DIAGNOSTICS ===
+
+  const roomPath = "rooms/" + klasse + "/messages";
+
+  // Listener neu setzen
+  database.ref(roomPath).off();
+  database.ref(roomPath).on("child_added", function(snap){
+    const msg = snap.val() || {};
+    if (chatLog) {
+      const p = document.createElement("p");
+      p.textContent = (msg.user || "User") + ": " + (msg.text || "");
+      chatLog.appendChild(p);
+    }
+  });
+
+  // Senden aktivieren
+  if (sendBtn) {
+    sendBtn.onclick = function() {
+      const text = (msgInput && msgInput.value || "").trim();
+      if (!text) return;
+      database.ref(roomPath).push().set({ user: nick, text: text }).then(function(){
+        if (msgInput) msgInput.value = "";
+      });
+    };
+  }
+};
 </script>
 <script>
 // ===== Netiquette Scoring & Moderation (robust attach) =====
