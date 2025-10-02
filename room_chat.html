@@ -54,7 +54,39 @@ header .score.low { color:#b91c1c; }
         input.value = "";
       }
     }
-  </script>
+  
+    document.getElementById("openRoomBtn").onclick = function() {
+      const klasse = document.getElementById("klasse").value;
+      const nick   = document.getElementById("nick").value;
+
+      if (!klasse || !nick) {
+        alert("Bitte Klasse und Nickname eingeben!");
+        return;
+      }
+
+      // Chat senden
+      sendBtn.onclick = function() {
+        const msg = msgInput.value;
+        if (msg.trim() !== "") {
+          const newMsgRef = database.ref("messages/" + klasse).push();
+          newMsgRef.set({
+            user: nick,
+            text: msg
+          });
+          msgInput.value = "";
+        }
+      };
+
+      // Chat empfangen
+      database.ref("messages/" + klasse).on("child_added", function(snapshot) {
+        const msg = snapshot.val();
+        const p = document.createElement("p");
+        p.textContent = msg.user + ": " + msg.text;
+        chatLog.appendChild(p);
+      });
+    };
+
+</script>
 <script>
 // ===== Netiquette Scoring & Moderation (robust attach) =====
 (function(){
@@ -181,7 +213,39 @@ header .score.low { color:#b91c1c; }
     setTimeout(bindOnce, 1500);
     setTimeout(bindOnce, 3000);
   }
-})();</script>
+})();
+    document.getElementById("openRoomBtn").onclick = function() {
+      const klasse = document.getElementById("klasse").value;
+      const nick   = document.getElementById("nick").value;
+
+      if (!klasse || !nick) {
+        alert("Bitte Klasse und Nickname eingeben!");
+        return;
+      }
+
+      // Chat senden
+      sendBtn.onclick = function() {
+        const msg = msgInput.value;
+        if (msg.trim() !== "") {
+          const newMsgRef = database.ref("messages/" + klasse).push();
+          newMsgRef.set({
+            user: nick,
+            text: msg
+          });
+          msgInput.value = "";
+        }
+      };
+
+      // Chat empfangen
+      database.ref("messages/" + klasse).on("child_added", function(snapshot) {
+        const msg = snapshot.val();
+        const p = document.createElement("p");
+        p.textContent = msg.user + ": " + msg.text;
+        chatLog.appendChild(p);
+      });
+    };
+
+</script>
 <!-- ==== CHAT SYNC & PROFANITY NOTICE PATCH (no layout/logo changes) ==== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -304,6 +368,38 @@ header .score.low { color:#b91c1c; }
     postBubble('🔴 Test-Schreiben THROW: ' + (err && err.message ? err.message : String(err)), 'warn');
     console.error('PING push throw', err);
   }
+
+    document.getElementById("openRoomBtn").onclick = function() {
+      const klasse = document.getElementById("klasse").value;
+      const nick   = document.getElementById("nick").value;
+
+      if (!klasse || !nick) {
+        alert("Bitte Klasse und Nickname eingeben!");
+        return;
+      }
+
+      // Chat senden
+      sendBtn.onclick = function() {
+        const msg = msgInput.value;
+        if (msg.trim() !== "") {
+          const newMsgRef = database.ref("messages/" + klasse).push();
+          newMsgRef.set({
+            user: nick,
+            text: msg
+          });
+          msgInput.value = "";
+        }
+      };
+
+      // Chat empfangen
+      database.ref("messages/" + klasse).on("child_added", function(snapshot) {
+        const msg = snapshot.val();
+        const p = document.createElement("p");
+        p.textContent = msg.user + ": " + msg.text;
+        chatLog.appendChild(p);
+      });
+    };
+
 </script>
 <style>
   .msg { padding: 8px 10px; margin: 6px 0; border-radius: 8px; font-size: 14px; }
