@@ -57,7 +57,7 @@ header .score.low { color:#b91c1c; }
   
 
 document.getElementById("openRoomBtn").onclick = function() {
-  const klasse = document.getElementById("klasse").value;
+  const klasse = document.getElementById("klasse").value;   // e.g. "Klasse 5a"
   const nick   = document.getElementById("nick").value;
 
   const chatLog = document.getElementById("chatLog");
@@ -69,24 +69,27 @@ document.getElementById("openRoomBtn").onclick = function() {
     return;
   }
 
-  // ✅ Listener startet sofort für den gewählten Raum
-  database.ref("messages/" + klasse).off(); // alte Listener entfernen, falls vorhanden
-  database.ref("messages/" + klasse).on("child_added", function(snapshot) {
+  // Pfad exakt wie in der DB: rooms/<klasse>/messages
+  const roomPath = "rooms/" + klasse + "/messages";
+
+  // Alte Listener entfernen und neuen starten
+  database.ref(roomPath).off();
+  database.ref(roomPath).on("child_added", function(snapshot) {
     const msg = snapshot.val();
-    const p = document.createElement("p");
-    p.textContent = (msg.user || "User") + ": " + (msg.text || "");
-    chatLog.appendChild(p);
+    // Sicherheits-Check & Anzeige
+    if (msg) {
+      const p = document.createElement("p");
+      p.textContent = (msg.user || "User") + ": " + (msg.text || "");
+      chatLog.appendChild(p);
+    }
   });
 
-  // ✅ Senden aktivieren
+  // Senden aktivieren
   sendBtn.onclick = function() {
-    const msg = (msgInput.value || "").trim();
-    if (msg !== "") {
-      const newMsgRef = database.ref("messages/" + klasse).push();
-      newMsgRef.set({
-        user: nick,
-        text: msg
-      });
+    const text = (msgInput.value || "").trim();
+    if (text !== "") {
+      const newMsgRef = database.ref(roomPath).push();
+      newMsgRef.set({ user: nick, text: text });
       msgInput.value = "";
     }
   };
@@ -218,137 +221,5 @@ document.getElementById("openRoomBtn").onclick = function() {
     setTimeout(bindOnce, 1500);
     setTimeout(bindOnce, 3000);
   }
-})();</script>
-<!-- ==== CHAT SYNC & PROFANITY NOTICE PATCH (no layout/logo changes) ==== -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import { getDatabase, ref, push, onChildAdded, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
-  const params = new URLSearchParams(location.search);
-  const ROOM = params.get('room') || 'default';
-  const NICK = params.get('nick') || 'Gast';
-  const FALLBACK_CONFIG = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    databaseURL: "https://netiquette-74729-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "YOUR_PROJECT",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
-  const APP = initializeApp(window.FIREBASE_CONFIG || FALLBACK_CONFIG);
-  const DB  = getDatabase(APP);
-  const DBURL = (APP && APP.options && (APP.options.databaseURL || APP.options['databaseURL'])) || '(unbekannt)';
-  const $ = (sel) => document.querySelector(sel);
-  const messagesBox = document.getElementById('messages') || $('.messages') || $('#chat-log') || $('#chatLog');
-  const form        = document.getElementById('chat-form') || $('form.chat-form') || $('form');
-  const input       = document.getElementById('chat-input') || $('#chat-input') || document.querySelector('input[type="text"], textarea');
-
-  function postBubble(html, cls = "system") {
-    if (!messagesBox) return;
-    const wrap = document.createElement('div');
-    wrap.className = `msg ${cls}`;
-    wrap.innerHTML = html;
-    messagesBox.appendChild(wrap);
-    messagesBox.scrollTop = messagesBox.scrollHeight;
-  }
-  function wordsRe(list) {
-    if (!Array.isArray(list) || !list.length) return null;
-    const escaped = list.map(w => String(w).trim())
-      .filter(Boolean)
-      .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    if (!escaped.length) return null;
-    return new RegExp(`\\b(?:${escaped.join('|')})\\b`, 'i');
-  }
-  const GLOBAL = (typeof window !== 'undefined') ? window : {};
-  const LIST_PROF   = GLOBAL.PROFANITY_LIST || GLOBAL.badWords || GLOBAL.WORD_LIST || GLOBAL.WORDLIST || GLOBAL.blockList || GLOBAL.BLOCKLIST || GLOBAL.BLOCKLIST_ALL;
-  const LIST_HARD   = GLOBAL.BLOCKLIST_SEXIST_RACIST || GLOBAL.HARD_BLOCKLIST || GLOBAL.BLOCKLIST_HARD;
-  const reProf      = wordsRe(LIST_PROF || []);
-  const reHard      = wordsRe(LIST_HARD || []);
-  function normalize(s) {
-    return String(s || '')
-      .toLocaleLowerCase('de-DE')
-      .normalize('NFKC')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-  function isProfane(text) {
-    const n = normalize(text);
-    const hard = reHard ? reHard.test(n) : false;
-    const soft = !hard && reProf ? reProf.test(n) : false;
-    return { hard, soft, any: hard || soft };
-  }
-  const roomRef = ref(DB, `/rooms/${encodeURIComponent(ROOM)}/messages`);
-  onChildAdded(roomRef, (snap) => { try {
-    const msg = snap.val();
-    if (!msg) return;
-    const who = msg.user || '???';
-    const text = msg.text || '';
-    const cls = (who === NICK) ? 'me' : 'other';
-    postBubble(`<strong>${who}:</strong> ${text}`, cls);
-  });
-  if (form && input) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const text = input.value || "";
-      const check = isProfane(text);
-      if (check.any) {
-        postBubble('⚠️ Unangemessene Sprache ist nicht erlaubt. Bitte formuliere respektvoll.', 'warn');
-        input.focus();
-        return;
-      }
-      try {
-        push(roomRef, {
-          user: NICK,
-          text: text,
-          ts: serverTimestamp()
-        }).then(()=>{
-          input.value = '';
-          input.focus();
-        }).catch(err=>{
-          console.error('push error', err);
-          postBubble('❗️ Senden fehlgeschlagen (Firebase): ' + (err && err.message ? err.message : err), 'warn');
-        });
-      } catch(err) {
-        console.error('push throw', err);
-        postBubble('❗️ Senden fehlgeschlagen (throw): ' + (err && err.message ? err.message : err), 'warn');
-      }
-    });
-  } else {
-    console.warn('Chat form or input not found; patch keeps layout untouched but cannot bind.');
-  }
-  postBubble(`✅ Netiquette aktiv. Du bist als <strong>${NICK}</strong> im Raum <strong>${ROOM}</strong>.`, 'system');
-  postBubble(`ℹ️ Firebase verbunden: <code>${DBURL}</code>`, 'system');
-
-  // --- Diagnostics: show config summary ---
-  const cfg = (APP && APP.options) || {};
-  postBubble(`🔍 Diagnose: projectId=<code>${cfg.projectId||'(leer)'}</code>, authDomain=<code>${cfg.authDomain||'(leer)'}</code>`, 'system');
-
-  // --- Diagnostics: attempt a test write (ping) ---
-  try {
-    const pingRef = roomRef;
-    push(pingRef, {
-      user: NICK,
-      text: "[PING] Verbindungstest",
-      ts: serverTimestamp(),
-      _diag: true
-    }).then(()=>{
-      postBubble('🟢 Test-Schreiben ok (Realtime Database nimmt Daten an).', 'system');
-    }).catch(err=>{
-      postBubble('🔴 Test-Schreiben FEHLER: ' + (err && err.message ? err.message : String(err)), 'warn');
-      console.error('PING push error', err);
-    });
-  } catch(err) {
-    postBubble('🔴 Test-Schreiben THROW: ' + (err && err.message ? err.message : String(err)), 'warn');
-    console.error('PING push throw', err);
-  }
-</script>
-<style>
-  .msg { padding: 8px 10px; margin: 6px 0; border-radius: 8px; font-size: 14px; }
-  .msg.me { background: rgba(25,118,210,.12); }
-  .msg.other { background: rgba(0,0,0,.06); }
-  .msg.system { background: rgba(76,175,80,.10); font-style: italic; }
-  .msg.warn { background: rgba(244,67,54,.10); border-left: 3px solid #f44336; }
-</style>
-<!-- ==== END PATCH ==== -->
-</body>
+})();</script></body>
 </html>
