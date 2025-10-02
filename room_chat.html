@@ -56,44 +56,72 @@ header .score.low { color:#b91c1c; }
     }
   
 
-document.getElementById("openRoomBtn").onclick = function() {
-  const klasse = document.getElementById("klasse").value;   // e.g. "Klasse 5a"
-  const nick   = document.getElementById("nick").value;
+// === DIAGNOSTICS HOOKS (non-intrusive, console only) ===
+(function(){
+  try {
+    console.log("[NETIQUIETTE] Firebase SDK:", typeof firebase);
+    // Connection state
+    try {
+      firebase.database().ref(".info/connected").on("value", s => {
+        console.log("[NETIQUIETTE] .info/connected =", s.val());
+      });
+    } catch(e){ console.warn("[NETIQUIETTE] .info/connected hook failed:", e); }
 
-  const chatLog = document.getElementById("chatLog");
-  const sendBtn = document.getElementById("sendBtn");
-  const msgInput = document.getElementById("msgInput");
+    const openBtn = document.getElementById("openRoomBtn");
+    const chatLog = document.getElementById("chatLog");
+    const sendBtn = document.getElementById("sendBtn");
+    const msgInput = document.getElementById("msgInput");
+    const klasseEl = document.getElementById("klasse");
+    const nickEl   = document.getElementById("nick");
 
-  if (!klasse || !nick) {
-    alert("Bitte Klasse und Nickname eingeben!");
-    return;
+    if(!openBtn || !chatLog || !sendBtn || !msgInput || !klasseEl || !nickEl){
+      console.error("[NETIQUIETTE] Missing DOM elements",
+        {openBtn:!!openBtn, chatLog:!!chatLog, sendBtn:!!sendBtn, msgInput:!!msgInput, klasse:!!klasseEl, nick:!!nickEl});
+    }
+
+    openBtn && (openBtn.onclick = function(){
+      const klasse = (klasseEl && klasseEl.value) || "Klasse 5a";
+      const nick   = (nickEl && nickEl.value) || "User";
+      const roomPath = "rooms/" + klasse + "/messages";
+      console.log("[NETIQUIETTE] OPEN ROOM clicked →", {klasse, nick, roomPath});
+
+      const ref = firebase.database().ref(roomPath);
+
+      // detach previous and attach new
+      ref.off();
+      console.log("[NETIQUIETTE] Listener attaching to", roomPath);
+      ref.on("child_added", function(snap){
+        const msg = snap.val();
+        console.log("[NETIQUIETTE] child_added", {key: snap.key, msg});
+        if(chatLog){
+          const p = document.createElement("p");
+          p.textContent = (msg && msg.user || "User") + ": " + (msg && msg.text || "");
+          chatLog.appendChild(p);
+        } else {
+          console.warn("[NETIQUIETTE] chatLog not found, cannot render message");
+        }
+      }, function(err){
+        console.error("[NETIQUIETTE] Listener error", err);
+        alert("Firebase-Lesen blockiert oder Fehler: " + (err && (err.code || err.message)));
+      });
+
+      // send hook
+      if(sendBtn){
+        sendBtn.onclick = function(){
+          const text = (msgInput && msgInput.value || "").trim();
+          if(!text) return;
+          console.log("[NETIQUIETTE] SEND →", {roomPath, nick, text});
+          firebase.database().ref(roomPath).push().set({user:nick, text:text})
+            .then(()=>{ if(msgInput) msgInput.value=""; console.log("[NETIQUIETTE] SEND ok"); })
+            .catch(err=>{ console.error("[NETIQUIETTE] SEND failed", err); alert("Firebase-Schreiben fehlgeschlagen: " + (err && (err.code || err.message))); });
+        };
+      }
+    });
+  } catch(e){
+    console.error("[NETIQUIETTE] Diagnostics init failed:", e);
   }
-
-  // Pfad exakt wie in der DB: rooms/<klasse>/messages
-  const roomPath = "rooms/" + klasse + "/messages";
-
-  // Alte Listener entfernen und neuen starten
-  database.ref(roomPath).off();
-  database.ref(roomPath).on("child_added", function(snapshot) {
-    const msg = snapshot.val();
-    // Sicherheits-Check & Anzeige
-    if (msg) {
-      const p = document.createElement("p");
-      p.textContent = (msg.user || "User") + ": " + (msg.text || "");
-      chatLog.appendChild(p);
-    }
-  });
-
-  // Senden aktivieren
-  sendBtn.onclick = function() {
-    const text = (msgInput.value || "").trim();
-    if (text !== "") {
-      const newMsgRef = database.ref(roomPath).push();
-      newMsgRef.set({ user: nick, text: text });
-      msgInput.value = "";
-    }
-  };
-};
+})();
+// === END DIAGNOSTICS ===
 </script>
 <script>
 // ===== Netiquette Scoring & Moderation (robust attach) =====
