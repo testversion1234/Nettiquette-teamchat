@@ -17,6 +17,7 @@
     button:hover { filter:brightness(.95); }
     #user-list { margin:10px 0; padding:8px; background:#eef5ff; border-radius:8px; }
     #user-list ul { margin:6px 0 0 18px; padding:0; }
+    #debug { background:#111;color:#0f0;padding:6px;font-size:12px;white-space:pre-wrap; }
   </style>
 </head>
 <body>
@@ -38,6 +39,8 @@
       <button type="submit">Senden</button>
     </form>
   </main>
+
+  <div id="debug">[Debug-Ausgabe]</div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -66,11 +69,21 @@
     document.getElementById("room-info").textContent =
       `Aktueller Raum: ${klasse} | Nickname: ${nick}`;
 
+    // === Debug-Helfer ===
+    const dbg = document.getElementById("debug");
+    function log(...m) {
+      console.log(...m);
+      dbg.textContent += "\n" + m.join(" ");
+    }
+    log("Firebase databaseURL:", firebaseConfig.databaseURL);
+    log("Raum:", klasse, "Nick:", nick);
+
     // === Nachrichten ===
     const messagesEl = document.getElementById("messages");
     const inputEl    = document.getElementById("chat-input");
     const formEl     = document.getElementById("chat-form");
     const roomRef    = ref(db, `rooms/${encodeURIComponent(klasse)}/messages`);
+    log("messagesPath:", `rooms/${klasse}/messages`);
 
     onChildAdded(roomRef, (snap) => {
       const m = snap.val();
@@ -78,12 +91,17 @@
       appendMessage(m.nick, m.text, m.ts);
     });
 
-    formEl.addEventListener("submit", (e) => {
+    formEl.addEventListener("submit", async (e) => {
       e.preventDefault();
       const text = (inputEl.value || "").trim();
       if (!text) return;
-      push(roomRef, { nick, text: text.slice(0,500), ts: serverTimestamp() });
-      inputEl.value = "";
+      try {
+        await push(roomRef, { nick, text: text.slice(0,500), ts: serverTimestamp() });
+        inputEl.value = "";
+        log("Nachricht gesendet:", text);
+      } catch (e) {
+        log("❌ Sendefehler:", e.message);
+      }
     });
 
     function appendMessage(sender, text, ts) {
@@ -98,13 +116,10 @@
     // === Userliste ===
     const usersUl  = document.getElementById("users");
     const myUserRef = ref(db, `rooms/${encodeURIComponent(klasse)}/users/${encodeURIComponent(nick)}`);
-
-    // Eigenen User eintragen
-    set(myUserRef, true);
-    // Automatisch entfernen beim Disconnect
+    set(myUserRef, true).catch(e => log("❌ User setzen Fehler:", e.message));
     onDisconnect(myUserRef).remove();
+    log("usersPath:", `rooms/${klasse}/users`);
 
-    // Userliste beobachten
     const usersRef = ref(db, `rooms/${encodeURIComponent(klasse)}/users`);
     onValue(usersRef, (snap) => {
       const data = snap.val() || {};
