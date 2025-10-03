@@ -260,6 +260,77 @@ header .score.low { color:#b91c1c; }
   });
 })();
 </script>
+<!-- Realtime-Chat (Firebase) -->
+<script type="module">
+  // 1) Firebase SDK laden
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+  import { getDatabase, ref, push, onChildAdded, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
+  // 2) DEINE Firebase-Konfiguration eintragen:
+  const firebaseConfig = {
+    apiKey:        "DEIN_API_KEY",
+    authDomain:    "DEIN_PROJEKT.firebaseapp.com",
+    databaseURL:   "https://DEIN_PROJEKT-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId:     "DEIN_PROJEKT",
+    storageBucket: "DEIN_PROJEKT.appspot.com",
+    messagingSenderId: "…",
+    appId: "…"
+  };
+
+  // 3) App & DB initialisieren
+  const app = initializeApp(firebaseConfig);
+  const db  = getDatabase(app);
+
+  // 4) URL-Parameter holen
+  const params = new URLSearchParams(location.search);
+  const klasse = (params.get('klasse') || 'Allgemein').trim();
+  const nick   = (params.get('nick')   || 'Gast').trim();
+
+  // 5) UI füllen
+  const infoEl = document.getElementById("room-info");
+  if (infoEl) infoEl.textContent = `Aktueller Raum: ${klasse} | Nickname: ${nick} | Mein Score: 0`;
+
+  const messagesEl = document.getElementById("messages");
+  const inputEl    = document.getElementById("chat-input");
+  const formEl     = document.getElementById("chat-form");
+
+  // 6) Referenz auf den Raum
+  const roomRef = ref(db, `rooms/${encodeURIComponent(klasse)}/messages`);
+
+  // 7) Neue Nachrichten anhören
+  onChildAdded(roomRef, (snap) => {
+    const m = snap.val();
+    if (!m || !m.text) return;
+    appendMessage(m.nick || "?", m.text, m.ts);
+  });
+
+  // 8) Nachricht senden
+  formEl?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = (inputEl?.value || "").trim();
+    if (!text) return;
+
+    // Begrenzen & grob säubern
+    const cleaned = text.slice(0, 500);
+
+    push(roomRef, {
+      nick,
+      text: cleaned,
+      ts: serverTimestamp()
+    });
+
+    inputEl.value = "";
+  });
+
+  // 9) Helper zum Anzeigen
+  function appendMessage(sender, text, ts) {
+    const row = document.createElement("div");
+    const who = sender === nick ? "Du" : sender;
+    const when = ts ? new Date(ts).toLocaleTimeString() : "";
+    row.textContent = `${who} ${when ? "("+when+")" : ""}: ${text}`;
+    messagesEl?.appendChild(row);
+    messagesEl?.scrollTo({ top: messagesEl.scrollHeight, behavior: "smooth" });
+  }
+</script>
 </body>
 </html>
