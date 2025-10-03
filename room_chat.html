@@ -2,52 +2,70 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Chatroom</title>
+  <title>💬 Klassenchat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: Arial, sans-serif; margin:0; background:#f6f7fb; }
-    header { background:#1976d2; color:#fff; padding:12px; text-align:center; }
-    #room-info { font-size:0.9rem; opacity:0.9; }
-    main { max-width:800px; margin:20px auto; background:#fff; padding:20px;
-           border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,.1);}
-    #messages { border:1px solid #ccc; height:300px; overflow-y:auto; padding:10px; margin-bottom:12px; }
-    #chat-form { display:flex; gap:8px; }
-    #chat-input { flex:1; padding:8px; }
-    button { background:#1976d2; color:#fff; border:none; border-radius:6px; padding:8px 14px; cursor:pointer;}
-    button:hover { filter:brightness(.95); }
-    #user-list { margin:10px 0; padding:8px; background:#eef5ff; border-radius:8px; }
-    #user-list ul { margin:6px 0 0 18px; padding:0; }
-    #debug { background:#111;color:#0f0;padding:6px;font-size:12px;white-space:pre-wrap; }
+    :root{
+      --brand:#1976d2;
+      --panel:#eef5ff;
+      --text:#222;
+    }
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#f5f7fb;color:var(--text)}
+    header{background:var(--brand);color:#fff;padding:16px 12px;text-align:center;position:sticky;top:0}
+    header .title{font-weight:700;font-size:28px;display:flex;gap:10px;align-items:center;justify-content:center}
+    header .subtitle{opacity:.9;margin-top:4px}
+    main{max-width:900px;margin:18px auto;padding:0 12px}
+    .card{background:#fff;border-radius:10px;box-shadow:0 8px 26px rgba(0,0,0,.08);padding:16px;margin-bottom:16px}
+    .card h3{margin:0 0 10px 0;font-size:16px;font-weight:700;opacity:.9}
+    .muted{opacity:.7}
+    #messages{height:340px;border:1px solid #dfe3eb;border-radius:8px;padding:10px;overflow-y:auto;background:#fff}
+    #chat-form{display:flex;gap:8px;margin-top:10px}
+    #chat-input{flex:1;padding:10px;border:1px solid #ccd3df;border-radius:8px}
+    button{background:var(--brand);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-weight:700;cursor:pointer}
+    button:active{transform:translateY(1px)}
+    #user-list{background:var(--panel);border-radius:8px;padding:10px}
+    #user-list ul{margin:6px 0 0 16px;padding:0}
+    #user-list li{margin:2px 0}
+    #debug{background:#111;color:#0f0;padding:6px 8px;font-size:12px;white-space:pre-wrap;border-radius:8px;margin:12px 0}
+    /* optional: old logo placeholder stays untouched if present in your layout */
+    img.logo{height:28px;vertical-align:middle}
   </style>
 </head>
 <body>
   <header>
-    <h1>💬 Klassenchat</h1>
-    <div id="room-info">Raum wird geladen…</div>
+    <div class="title">
+      <!-- Bestehendes Logo kann hier bleiben; wenn du zuvor ein <img class="logo"> genutzt hast,
+           lasse es einfach stehen. Ich ändere hier nichts am Logo. -->
+      <span>💬</span><span>Klassenzchat</span>
+    </div>
+    <div id="room-info" class="subtitle">Aktueller Raum wird geladen…</div>
   </header>
 
   <main>
-    <div id="user-list">
-      👥 Aktive User im Raum:
-      <ul id="users"></ul>
+    <div class="card">
+      <div id="user-list">
+        <h3>👥 Aktive User im Raum:</h3>
+        <ul id="users"></ul>
+      </div>
+
+      <div id="messages" class="card" style="margin-top:12px;"></div>
+
+      <form id="chat-form">
+        <input id="chat-input" type="text" placeholder="Nachricht eingeben…" autocomplete="off">
+        <button type="submit">Senden</button>
+      </form>
     </div>
 
-    <div id="messages"></div>
-
-    <form id="chat-form">
-      <input id="chat-input" type="text" placeholder="Nachricht eingeben…" />
-      <button type="submit">Senden</button>
-    </form>
+    <div id="debug" class="card">[Debug-Ausgabe]</div>
   </main>
-
-  <div id="debug">[Debug-Ausgabe]</div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
     import { getDatabase, ref, push, onChildAdded, serverTimestamp,
              set, onDisconnect, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
 
-    // === Firebase Config eintragen ===
+    // === Deine Firebase-Konfiguration (unverändert eintragen) ===
     const firebaseConfig = {
       apiKey:        "DEIN_API_KEY",
       authDomain:    "DEIN_PROJEKT.firebaseapp.com",
@@ -57,70 +75,44 @@
       messagingSenderId: "DEINE_ID",
       appId: "DEINE_APP_ID"
     };
+
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
 
-    // === Parameter auslesen ===
+    // === Raum & Nick aus URL ===
     const params = new URLSearchParams(location.search);
     const klasse = (params.get("klasse") || "Allgemein").trim();
     const nick   = (params.get("nick")   || "Gast").trim();
 
-    // Info-Anzeige
-    document.getElementById("room-info").textContent =
-      `Aktueller Raum: ${klasse} | Nickname: ${nick}`;
-
-    // === Debug-Helfer ===
-    const dbg = document.getElementById("debug");
-    function log(...m) {
-      console.log(...m);
-      dbg.textContent += "\n" + m.join(" ");
-    }
-    log("Firebase databaseURL:", firebaseConfig.databaseURL);
-    log("Raum:", klasse, "Nick:", nick);
-
-    // === Nachrichten ===
+    const infoEl     = document.getElementById("room-info");
     const messagesEl = document.getElementById("messages");
+    const usersUl    = document.getElementById("users");
     const inputEl    = document.getElementById("chat-input");
     const formEl     = document.getElementById("chat-form");
-    const roomRef    = ref(db, `rooms/${encodeURIComponent(klasse)}/messages`);
-    log("messagesPath:", `rooms/${klasse}/messages`);
+    const dbg        = document.getElementById("debug");
 
-    onChildAdded(roomRef, (snap) => {
-      const m = snap.val();
-      if (!m) return;
-      appendMessage(m.nick, m.text, m.ts);
-    });
+    infoEl.textContent = `Aktueller Raum: ${klasse} | Nickname: ${nick}`;
 
-    formEl.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const text = (inputEl.value || "").trim();
-      if (!text) return;
-      try {
-        await push(roomRef, { nick, text: text.slice(0,500), ts: serverTimestamp() });
-        inputEl.value = "";
-        log("Nachricht gesendet:", text);
-      } catch (e) {
-        log("❌ Sendefehler:", e.message);
-      }
-    });
+    function log(...m){ console.log(...m); dbg.textContent += "\n" + m.join(" "); }
 
-    function appendMessage(sender, text, ts) {
-      const row = document.createElement("div");
-      const who = sender === nick ? "Du" : sender;
-      const when = ts ? new Date(ts).toLocaleTimeString() : "";
-      row.textContent = `${who} ${when? "("+when+")":""}: ${text}`;
-      messagesEl.appendChild(row);
-      messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: "smooth" });
-    }
+    // === Pfade ===
+    const roomPath      = `rooms/${encodeURIComponent(klasse)}`;
+    const messagesPath  = `${roomPath}/messages`;
+    const usersPath     = `${roomPath}/users`;
+    const roomRef       = ref(db, messagesPath);
+    const myUserRef     = ref(db, `${usersPath}/${encodeURIComponent(nick)}`);
+    const usersRef      = ref(db, usersPath);
 
-    // === Userliste ===
-    const usersUl  = document.getElementById("users");
-    const myUserRef = ref(db, `rooms/${encodeURIComponent(klasse)}/users/${encodeURIComponent(nick)}`);
-    set(myUserRef, true).catch(e => log("❌ User setzen Fehler:", e.message));
+    log("Firebase databaseURL:", firebaseConfig.databaseURL);
+    log("Raum:", klasse, "Nick:", nick);
+    log("messagesPath:", messagesPath);
+    log("usersPath:", usersPath);
+
+    // === User-Lifecycle ===
+    set(myUserRef, true).catch(e => log("❌ User setzen:", e.message));
     onDisconnect(myUserRef).remove();
-    log("usersPath:", `rooms/${klasse}/users`);
 
-    const usersRef = ref(db, `rooms/${encodeURIComponent(klasse)}/users`);
+    // FIX: vollständige Userliste rendern
     onValue(usersRef, (snap) => {
       const data = snap.val() || {};
       usersUl.innerHTML = "";
@@ -131,6 +123,35 @@
         usersUl.appendChild(li);
       });
     });
+
+    // === Nachrichten empfangen ===
+    onChildAdded(roomRef, (snap) => {
+      const m = snap.val();
+      if (!m) return;
+      appendMessage(m.nick, m.text, m.ts);
+    });
+
+    // === Senden ===
+    formEl.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = (inputEl.value || "").trim();
+      if (!text) return;
+      try{
+        await push(roomRef, { nick, text: text.slice(0,500), ts: serverTimestamp() });
+        inputEl.value = "";
+      }catch(err){
+        log("❌ Sendefehler:", err.message);
+      }
+    });
+
+    function appendMessage(sender, text, ts){
+      const row = document.createElement("div");
+      const who = sender === nick ? "Du" : sender;
+      const when = ts ? new Date(ts).toLocaleTimeString() : "";
+      row.textContent = `${who} ${when? "(" + when + ")": ""}: ${text}`;
+      messagesEl.appendChild(row);
+      messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: "smooth" });
+    }
   </script>
 </body>
 </html>
