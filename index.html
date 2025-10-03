@@ -100,5 +100,19 @@
       window.location.href = url;
     });
   </script>
+  <script>
+  document.getElementById("openRoomBtn").addEventListener("click", () => {
+    const klasse = document.getElementById("klasse").value;
+    const nick = document.getElementById("nick").value.trim();
+
+    if (!nick) {
+      alert("Bitte gib einen Nickname ein!");
+      return;
+    }
+
+    // zur Chat-Seite weiterleiten und Klasse + Nickname übergeben
+    window.location.href = `room_chat.html?klasse=${encodeURIComponent(klasse)}&nick=${encodeURIComponent(nick)}`;
+  });
+</script>
 </body>
 </html>
